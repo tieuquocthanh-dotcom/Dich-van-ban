@@ -1,0 +1,10 @@
+{
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "name": "Gemini AI Translator & Language Companion",
+  "description": "Luyện giao tiếp đa ngôn ngữ, đàm thoại bạn bè tự nhiên, dịch thuật chuyên sâu và luyện nghe với Gemini AI",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
