@@ -425,8 +425,8 @@ const CustomScenarioModal = ({ isOpen, onClose, onStart }: { isOpen: boolean, on
                 <h3 className="text-2xl font-black text-gray-800 dark:text-white mb-2 tracking-tight">Tạo phối cảnh mới</h3>
                 <p className="text-sm text-gray-400 mb-8">Mô tả tình huống bạn muốn luyện tập.</p>
                 <div className="space-y-4">
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Tên phối cảnh (vd: Phỏng vấn visa)" className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none font-bold" />
-                    <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Chi tiết: Bạn đang ở đâu? Nói chuyện với ai? (Vd: Tôi đang ở đại sứ quán Mỹ để phỏng vấn visa du học)" className="w-full h-32 p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none resize-none font-medium" />
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Tên phối cảnh (vd: Phỏng vấn visa)" style={{ backgroundColor: '#374151', color: '#ffffff', WebkitTextFillColor: '#ffffff', caretColor: '#ffffff', colorScheme: 'dark' }} className="w-full p-4 rounded-2xl bg-gray-700 text-white placeholder:text-gray-300 border-none font-bold" />
+                    <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Chi tiết: Bạn đang ở đâu? Nói chuyện với ai? (Vd: Tôi đang ở đại sứ quán Mỹ để phỏng vấn visa du học)" style={{ backgroundColor: '#374151', color: '#ffffff', WebkitTextFillColor: '#ffffff', caretColor: '#ffffff', colorScheme: 'dark' }} className="w-full h-32 p-4 rounded-2xl bg-gray-700 text-white placeholder:text-gray-300 border-none resize-none font-medium" />
                 </div>
                 <div className="flex gap-4 mt-8">
                     <button onClick={onClose} className="flex-1 py-4 text-gray-400 font-black uppercase text-xs tracking-widest">Hủy</button>
@@ -590,7 +590,7 @@ const ConversationTab = ({ voice, isSlow, state, setState }: { voice: VoiceType,
             </div>
 
             <div className="flex gap-2 mb-2">
-                <input value={state.inputText} onChange={e => setState({ ...state, inputText: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleSendMessage(state.inputText)} placeholder="Nhập câu trả lời bằng tiếng Anh..." className="flex-1 p-4 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none font-medium" />
+                <input value={state.inputText} onChange={e => setState({ ...state, inputText: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleSendMessage(state.inputText)} placeholder="Nhập câu trả lời bằng tiếng Anh..." style={{ backgroundColor: '#1f2937', color: '#ffffff', WebkitTextFillColor: '#ffffff', caretColor: '#ffffff', colorScheme: 'dark' }} className="flex-1 p-4 rounded-2xl bg-gray-800 text-white placeholder:text-gray-300 border-none font-medium" />
                 <button onClick={() => handleSendMessage(state.inputText)} disabled={!state.inputText.trim() || state.loading} className="px-8 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs tracking-widest disabled:opacity-50 transition-all">Gửi</button>
             </div>
             
@@ -1298,10 +1298,10 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                     <select 
                         value={state.sourceLang} 
                         onChange={e => setState((prev: any) => ({ ...prev, sourceLang: e.target.value as LanguageCode }))} 
-                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                        className="w-full p-4 rounded-2xl bg-gray-800 dark:bg-gray-700 text-white border border-gray-700 dark:border-gray-600 font-bold"
+                        style={{ backgroundColor: '#1f2937', color: '#ffffff', WebkitTextFillColor: '#ffffff', colorScheme: 'dark', forcedColorAdjust: 'none' }}
+                        className="w-full p-4 rounded-2xl bg-gray-800 dark:bg-gray-700 !text-white border border-gray-700 dark:border-gray-600 font-bold"
                     >
-                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-gray-800 text-white">{l.name}</option>)}
+                        {LANGUAGES.map(l => <option key={l.code} value={l.code} style={{ backgroundColor: '#1f2937', color: '#ffffff' }} className="bg-gray-800 text-white">{l.name}</option>)}
                     </select>
                     <div className="relative">
                         <textarea 
@@ -1313,8 +1313,8 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                                     handleTranslate();
                                 }
                             }}
-                            style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                            className="w-full h-56 p-6 rounded-3xl bg-gray-800 dark:bg-gray-700 text-white placeholder:text-gray-300 border border-gray-700 dark:border-gray-600 resize-none text-xl font-medium focus:ring-2 focus:ring-blue-500/40" 
+                            style={{ backgroundColor: '#1f2937', color: '#ffffff', WebkitTextFillColor: '#ffffff', caretColor: '#ffffff', colorScheme: 'dark', forcedColorAdjust: 'none' }}
+                            className="w-full h-56 p-6 rounded-3xl bg-gray-800 dark:bg-gray-700 !text-white placeholder:text-gray-300 border border-gray-700 dark:border-gray-600 resize-none text-xl font-medium focus:ring-2 focus:ring-blue-500/40" 
                             placeholder="Nhập văn bản cần dịch... (Nhấn Ctrl+Enter hoặc Cmd+Enter để dịch nhanh)" 
                         />
                         {state.inputText && (
@@ -1338,17 +1338,17 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                     <select 
                         value={state.targetLang} 
                         onChange={e => setState((prev: any) => ({ ...prev, targetLang: e.target.value as LanguageCode }))} 
-                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                        className="w-full p-4 rounded-2xl bg-gray-800 dark:bg-gray-700 text-white border border-gray-700 dark:border-gray-600 font-bold"
+                        style={{ backgroundColor: '#1f2937', color: '#ffffff', WebkitTextFillColor: '#ffffff', colorScheme: 'dark', forcedColorAdjust: 'none' }}
+                        className="w-full p-4 rounded-2xl bg-gray-800 dark:bg-gray-700 !text-white border border-gray-700 dark:border-gray-600 font-bold"
                     >
-                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-gray-800 text-white">{l.name}</option>)}
+                        {LANGUAGES.map(l => <option key={l.code} value={l.code} style={{ backgroundColor: '#1f2937', color: '#ffffff' }} className="bg-gray-800 text-white">{l.name}</option>)}
                     </select>
                     <div className="relative">
                         <textarea 
                             value={state.outputText} 
                             readOnly 
-                            style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', opacity: 1 }}
-                            className={`w-full h-56 p-6 rounded-3xl border resize-none text-xl font-semibold placeholder:text-gray-300 ${translateError ? 'bg-red-950/80 border-red-700 text-white' : 'bg-gray-800 dark:bg-gray-700 border-gray-700 dark:border-gray-600 text-white'}`} 
+                            style={{ backgroundColor: translateError ? '#450a0a' : '#1f2937', color: '#ffffff', WebkitTextFillColor: '#ffffff', opacity: 1, colorScheme: 'dark', forcedColorAdjust: 'none' }}
+                            className={`w-full h-56 p-6 rounded-3xl border resize-none text-xl font-semibold placeholder:text-gray-300 !text-white ${translateError ? 'bg-red-950/80 border-red-700' : 'bg-gray-800 dark:bg-gray-700 border-gray-700 dark:border-gray-600'}`} 
                             placeholder="Kết quả bản dịch sẽ hiển thị tại đây..." 
                         />
                         {state.loading && (

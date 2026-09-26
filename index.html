@@ -8,17 +8,29 @@
     <meta name="description" content="Luyện giao tiếp đa ngôn ngữ, đàm thoại bạn bè tự nhiên, dịch thuật chuyên sâu và luyện nghe với Gemini AI" />
     <meta property="og:title" content="Gemini AI Translator & Language Companion" />
     <meta property="og:description" content="Luyện giao tiếp đa ngôn ngữ, đàm thoại bạn bè tự nhiên, dịch thuật chuyên sâu và luyện nghe với Gemini AI" />
+    <meta name="color-scheme" content="dark" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class'
+      };
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+      :root, html, body {
+        color-scheme: dark;
+      }
       body {
         font-family: 'Inter', sans-serif;
       }
-      textarea, input, select {
+      textarea, input, select, option {
+        color-scheme: dark !important;
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
+        caret-color: #ffffff !important;
+        forced-color-adjust: none !important;
       }
       textarea::placeholder, input::placeholder {
         color: #cbd5e1 !important;
