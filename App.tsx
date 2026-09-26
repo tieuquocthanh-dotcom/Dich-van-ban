@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Language, LanguageCode, VoiceType, TranslationAnalysis, TranscriptionResult, VocabularyItem, Scenario, ChatMessage, Dialogue, FriendPersona, FriendMessage, FriendChatResponse } from './types';
 import { LANGUAGES, SCENARIOS, DIALOGUES, FRIEND_PERSONAS, FRIEND_TOPICS } from './constants';
-import { translateText, generateSpeech, playSpeech, stopSpeech, transcribeAudio, analyzeTranslation, generateVocabImage, getPracticeResponse, decode, connectLive, getFriendChatResponse } from './services/geminiService';
+import { translateText, generateSpeech, playSpeech, stopSpeech, subscribeSpeechDiagnostics, SpeechDiagnostic, hasConfiguredApiKey, transcribeAudio, analyzeTranslation, generateVocabImage, getPracticeResponse, decode, connectLive, getFriendChatResponse } from './services/geminiService';
 
 // ICONS
 const SwapIcon = () => (
@@ -21,17 +21,79 @@ const LiveIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
 );
 
+const SpeechStatusBanner = ({
+    diagnostic,
+    onDismiss,
+    onTestAudio
+}: {
+    diagnostic: SpeechDiagnostic | null;
+    onDismiss: () => void;
+    onTestAudio: () => void;
+}) => {
+    if (!diagnostic || diagnostic.level === 'ok' || !diagnostic.message) return null;
+    const isError = diagnostic.level === 'error';
+    return (
+        <div className={`mb-6 p-4 rounded-2xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn ${
+            isError
+                ? 'bg-red-50 dark:bg-red-950/50 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
+                : 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200'
+        }`}>
+            <div className="space-y-1">
+                <div className="font-black text-xs sm:text-sm flex items-center gap-2">
+                    <span>{isError ? '❌ LỖI PHÁT ÂM THANH:' : '⚠️ THÔNG BÁO ÂM THANH:'}</span>
+                    <span>{diagnostic.message}</span>
+                </div>
+                {diagnostic.detail && (
+                    <p className="text-xs opacity-90 leading-relaxed">{diagnostic.detail}</p>
+                )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+                <button
+                    type="button"
+                    onClick={onTestAudio}
+                    className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                >
+                    🔊 Thử lại loa
+                </button>
+                <button
+                    type="button"
+                    onClick={onDismiss}
+                    className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-black/10 dark:bg-white/10 hover:bg-black/20 transition-all"
+                >
+                    Đóng
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) => {
     const [selectedDialogue, setSelectedDialogue] = useState<Dialogue | null>(null);
     const [showTranslation, setShowTranslation] = useState(false);
     const [isPlayingAll, setIsPlayingAll] = useState(false);
     const [playingLineIdx, setPlayingLineIdx] = useState<number | null>(null);
+    const [speechDiag, setSpeechDiag] = useState<SpeechDiagnostic | null>(null);
     const stopAllRef = useRef(false);
+
+    useEffect(() => {
+        return subscribeSpeechDiagnostics((diag) => {
+            setSpeechDiag(diag);
+        });
+    }, []);
 
     const handleTTS = async (text: string, idx?: number) => {
         if (idx !== undefined) setPlayingLineIdx(idx);
         try {
-            await playSpeech(text, voice, isSlow, 'English');
+            const res = await playSpeech(text, voice, isSlow, 'English');
+            if (res.level !== 'ok') {
+                setSpeechDiag(res);
+            }
+        } catch (err: any) {
+            setSpeechDiag({
+                level: 'error',
+                message: 'Lỗi không xác định khi phát âm thanh.',
+                detail: String(err?.message || err)
+            });
         } finally {
             if (idx !== undefined) setPlayingLineIdx(prev => (prev === idx ? null : prev));
         }
@@ -56,7 +118,10 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
             if (stopAllRef.current) break;
             const line = selectedDialogue.lines[i];
             setPlayingLineIdx(i);
-            await playSpeech(line.text, voice, isSlow, 'English');
+            const res = await playSpeech(line.text, voice, isSlow, 'English');
+            if (res.level !== 'ok') {
+                setSpeechDiag(res);
+            }
             if (stopAllRef.current) break;
             await new Promise(r => setTimeout(r, 400));
         }
@@ -67,6 +132,11 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
     if (selectedDialogue) {
         return (
             <div className="animate-fadeIn">
+                <SpeechStatusBanner
+                    diagnostic={speechDiag}
+                    onDismiss={() => setSpeechDiag(null)}
+                    onTestAudio={() => handleTTS(selectedDialogue.lines[0]?.text || 'Hello, testing audio playback.', 0)}
+                />
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
                     <button onClick={() => { stopAllPlayback(); setSelectedDialogue(null); }} className="text-sm font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                         ← Quay lại thư viện
@@ -74,7 +144,7 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
                     <div className="flex flex-wrap gap-3">
                          <button 
                             onClick={() => setShowTranslation(!showTranslation)} 
-                            className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${showTranslation ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-500'}`}
+                            className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${showTranslation ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-500 dark:text-gray-200'}`}
                         >
                             {showTranslation ? 'Ẩn dịch' : 'Hiện dịch'}
                         </button>
@@ -92,7 +162,7 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
                         <div className="text-4xl mb-2">{selectedDialogue.icon}</div>
                         <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">{selectedDialogue.title}</h2>
                         <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">{selectedDialogue.category}</span>
-                        <p className="text-xs text-gray-400 mt-2">Chạm vào biểu tượng loa hoặc từng câu thoại để nghe phát âm</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-300 mt-2">Chạm vào biểu tượng loa hoặc từng câu thoại để nghe phát âm</p>
                     </div>
 
                     <div className="space-y-4">
@@ -111,7 +181,7 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
                                     <div className="w-24 shrink-0 text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 sm:mt-1.5">{line.speaker}</div>
                                     <div className="flex-1">
                                         <div className="flex items-start justify-between gap-3">
-                                            <p className={`text-base sm:text-lg font-medium leading-relaxed ${isLinePlaying ? 'text-blue-700 dark:text-blue-300 font-bold' : 'text-gray-800 dark:text-gray-100'}`}>
+                                            <p className={`text-base sm:text-lg font-medium leading-relaxed ${isLinePlaying ? 'text-blue-700 dark:text-blue-300 font-bold' : 'text-gray-800 dark:text-white'}`}>
                                                 {line.text}
                                             </p>
                                             <button 
@@ -121,18 +191,19 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
                                                     if (isPlayingAll) stopAllPlayback();
                                                     handleTTS(line.text, idx);
                                                 }} 
-                                                className={`p-2.5 rounded-xl shrink-0 transition-all ${
+                                                className={`px-3 py-2.5 rounded-xl shrink-0 transition-all flex items-center gap-1.5 text-xs font-bold ${
                                                     isLinePlaying 
                                                         ? 'bg-blue-600 text-white animate-pulse shadow-md' 
-                                                        : 'bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-100 active:scale-95'
+                                                        : 'bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-white hover:bg-blue-100 active:scale-95'
                                                 }`}
                                                 title="Nghe câu này"
                                             >
                                                 <SpeakerIcon />
+                                                <span>{isLinePlaying ? 'Đang đọc...' : 'Nghe'}</span>
                                             </button>
                                         </div>
                                         {showTranslation && (
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 italic mt-2 animate-fadeIn">🇻🇳 {line.translation}</p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-200 italic mt-2 animate-fadeIn">🇻🇳 {line.translation}</p>
                                         )}
                                     </div>
                                 </div>
@@ -146,7 +217,21 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
 
     return (
         <div className="animate-fadeIn">
-            <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter mb-8">Thư viện luyện nghe chuyên sâu</h2>
+            <SpeechStatusBanner
+                diagnostic={speechDiag}
+                onDismiss={() => setSpeechDiag(null)}
+                onTestAudio={() => handleTTS('Hello! Welcome to the listening practice lab.')}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Thư viện luyện nghe chuyên sâu</h2>
+                <button
+                    type="button"
+                    onClick={() => handleTTS('Hello! Audio is working properly.')}
+                    className="px-4 py-2.5 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 hover:bg-blue-100 transition-all"
+                >
+                    <SpeakerIcon /> Kiểm tra loa
+                </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {DIALOGUES.map((d) => (
                     <button 
@@ -340,8 +425,8 @@ const CustomScenarioModal = ({ isOpen, onClose, onStart }: { isOpen: boolean, on
                 <h3 className="text-2xl font-black text-gray-800 dark:text-white mb-2 tracking-tight">Tạo phối cảnh mới</h3>
                 <p className="text-sm text-gray-400 mb-8">Mô tả tình huống bạn muốn luyện tập.</p>
                 <div className="space-y-4">
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Tên phối cảnh (vd: Phỏng vấn visa)" className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none font-bold" />
-                    <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Chi tiết: Bạn đang ở đâu? Nói chuyện với ai? (Vd: Tôi đang ở đại sứ quán Mỹ để phỏng vấn visa du học)" className="w-full h-32 p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none resize-none font-medium" />
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Tên phối cảnh (vd: Phỏng vấn visa)" className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none font-bold" />
+                    <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Chi tiết: Bạn đang ở đâu? Nói chuyện với ai? (Vd: Tôi đang ở đại sứ quán Mỹ để phỏng vấn visa du học)" className="w-full h-32 p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none resize-none font-medium" />
                 </div>
                 <div className="flex gap-4 mt-8">
                     <button onClick={onClose} className="flex-1 py-4 text-gray-400 font-black uppercase text-xs tracking-widest">Hủy</button>
@@ -505,7 +590,7 @@ const ConversationTab = ({ voice, isSlow, state, setState }: { voice: VoiceType,
             </div>
 
             <div className="flex gap-2 mb-2">
-                <input value={state.inputText} onChange={e => setState({ ...state, inputText: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleSendMessage(state.inputText)} placeholder="Nhập câu trả lời bằng tiếng Anh..." className="flex-1 p-4 rounded-2xl bg-white dark:bg-gray-800 border-none font-medium" />
+                <input value={state.inputText} onChange={e => setState({ ...state, inputText: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleSendMessage(state.inputText)} placeholder="Nhập câu trả lời bằng tiếng Anh..." className="flex-1 p-4 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none font-medium" />
                 <button onClick={() => handleSendMessage(state.inputText)} disabled={!state.inputText.trim() || state.loading} className="px-8 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs tracking-widest disabled:opacity-50 transition-all">Gửi</button>
             </div>
             
@@ -1210,8 +1295,8 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
         <div className="animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-4">
                 <div className="space-y-2">
-                    <select value={state.sourceLang} onChange={e => setState((prev: any) => ({ ...prev, sourceLang: e.target.value as LanguageCode }))} className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none font-bold">
-                        {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+                    <select value={state.sourceLang} onChange={e => setState((prev: any) => ({ ...prev, sourceLang: e.target.value as LanguageCode }))} className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border-none font-bold">
+                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{l.name}</option>)}
                     </select>
                     <div className="relative">
                         <textarea 
@@ -1223,13 +1308,13 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                                     handleTranslate();
                                 }
                             }}
-                            className="w-full h-56 p-6 rounded-3xl bg-gray-50 dark:bg-gray-700/50 border-none resize-none text-xl focus:ring-2 focus:ring-blue-500/20" 
+                            className="w-full h-56 p-6 rounded-3xl bg-gray-50 dark:bg-gray-700/80 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none resize-none text-xl focus:ring-2 focus:ring-blue-500/20" 
                             placeholder="Nhập văn bản cần dịch... (Nhấn Ctrl+Enter hoặc Cmd+Enter để dịch nhanh)" 
                         />
                         {state.inputText && (
                             <button 
                                 onClick={() => setState((prev: any) => ({ ...prev, inputText: '', outputText: '', analysis: null }))}
-                                className="absolute top-4 right-4 text-xs font-semibold px-2.5 py-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 text-gray-600 dark:text-gray-200 rounded-full transition-all"
+                                className="absolute top-4 right-4 text-xs font-semibold px-2.5 py-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 text-gray-600 dark:text-white rounded-full transition-all"
                             >
                                 Xóa
                             </button>
@@ -1238,20 +1323,20 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                 </div>
                 <button 
                     onClick={() => setState((prev: any) => ({ ...prev, sourceLang: prev.targetLang, targetLang: prev.sourceLang, inputText: prev.outputText, outputText: prev.inputText }))} 
-                    className="self-center mt-8 p-4 rounded-full bg-blue-50 text-blue-600 hover:rotate-180 transition-all duration-700 hover:bg-blue-100"
+                    className="self-center mt-8 p-4 rounded-full bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-white hover:rotate-180 transition-all duration-700 hover:bg-blue-100"
                     title="Đổi chiều ngôn ngữ"
                 >
                     <SwapIcon />
                 </button>
                 <div className="space-y-2">
-                    <select value={state.targetLang} onChange={e => setState((prev: any) => ({ ...prev, targetLang: e.target.value as LanguageCode }))} className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none font-bold">
-                        {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+                    <select value={state.targetLang} onChange={e => setState((prev: any) => ({ ...prev, targetLang: e.target.value as LanguageCode }))} className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border-none font-bold">
+                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{l.name}</option>)}
                     </select>
                     <div className="relative">
                         <textarea 
                             value={state.outputText} 
                             readOnly 
-                            className={`w-full h-56 p-6 rounded-3xl border-none resize-none text-xl font-medium ${translateError ? 'bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400' : 'bg-blue-50/30 dark:bg-blue-900/10'}`} 
+                            className={`w-full h-56 p-6 rounded-3xl border-none resize-none text-xl font-medium placeholder:text-gray-400 dark:placeholder:text-gray-300 ${translateError ? 'bg-red-50/50 dark:bg-red-950/40 text-red-600 dark:text-red-300' : 'bg-blue-50/30 dark:bg-gray-700/80 text-gray-900 dark:text-white'}`} 
                             placeholder="Kết quả bản dịch sẽ hiển thị tại đây..." 
                         />
                         {state.loading && (
@@ -1321,11 +1406,11 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                         {state.analysis.vocabulary.map((v: VocabularyItem, i: number) => (
                             <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-[2rem] shadow-sm relative group overflow-hidden border border-gray-100 dark:border-gray-700">
                                 <div className="font-black text-xl text-gray-900 dark:text-white mb-1 uppercase tracking-tighter">{v.word}</div>
-                                <div className="text-sm font-semibold text-blue-600 mb-3">{v.definition}</div>
-                                <div className="text-xs text-gray-400 italic mb-4">"{v.example}"</div>
+                                <div className="text-sm font-semibold text-blue-600 dark:text-blue-300 mb-3">{v.definition}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-200 italic mb-4">"{v.example}"</div>
                                 <button 
                                     onClick={() => saveToNotebook(v)} 
-                                    className="flex items-center gap-2 w-full justify-center py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-all"
+                                    className="flex items-center gap-2 w-full justify-center py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-white hover:bg-amber-50 hover:text-amber-600 transition-all"
                                 >
                                     <BookmarkIcon active={notebook.some(n => n.word === v.word)} />
                                     {notebook.some(n => n.word === v.word) ? 'Đã lưu vào sổ tay' : 'Lưu vào sổ tay'}
