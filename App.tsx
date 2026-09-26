@@ -1295,8 +1295,13 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
         <div className="animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-4">
                 <div className="space-y-2">
-                    <select value={state.sourceLang} onChange={e => setState((prev: any) => ({ ...prev, sourceLang: e.target.value as LanguageCode }))} className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border-none font-bold">
-                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{l.name}</option>)}
+                    <select 
+                        value={state.sourceLang} 
+                        onChange={e => setState((prev: any) => ({ ...prev, sourceLang: e.target.value as LanguageCode }))} 
+                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                        className="w-full p-4 rounded-2xl bg-gray-800 dark:bg-gray-700 text-white border border-gray-700 dark:border-gray-600 font-bold"
+                    >
+                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-gray-800 text-white">{l.name}</option>)}
                     </select>
                     <div className="relative">
                         <textarea 
@@ -1308,13 +1313,14 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                                     handleTranslate();
                                 }
                             }}
-                            className="w-full h-56 p-6 rounded-3xl bg-gray-50 dark:bg-gray-700/80 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-300 border-none resize-none text-xl focus:ring-2 focus:ring-blue-500/20" 
+                            style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                            className="w-full h-56 p-6 rounded-3xl bg-gray-800 dark:bg-gray-700 text-white placeholder:text-gray-300 border border-gray-700 dark:border-gray-600 resize-none text-xl font-medium focus:ring-2 focus:ring-blue-500/40" 
                             placeholder="Nhập văn bản cần dịch... (Nhấn Ctrl+Enter hoặc Cmd+Enter để dịch nhanh)" 
                         />
                         {state.inputText && (
                             <button 
                                 onClick={() => setState((prev: any) => ({ ...prev, inputText: '', outputText: '', analysis: null }))}
-                                className="absolute top-4 right-4 text-xs font-semibold px-2.5 py-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 text-gray-600 dark:text-white rounded-full transition-all"
+                                className="absolute top-4 right-4 text-xs font-semibold px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded-full transition-all"
                             >
                                 Xóa
                             </button>
@@ -1323,20 +1329,26 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
                 </div>
                 <button 
                     onClick={() => setState((prev: any) => ({ ...prev, sourceLang: prev.targetLang, targetLang: prev.sourceLang, inputText: prev.outputText, outputText: prev.inputText }))} 
-                    className="self-center mt-8 p-4 rounded-full bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-white hover:rotate-180 transition-all duration-700 hover:bg-blue-100"
+                    className="self-center mt-8 p-4 rounded-full bg-gray-800 dark:bg-gray-700 text-white hover:rotate-180 transition-all duration-700 hover:bg-blue-600"
                     title="Đổi chiều ngôn ngữ"
                 >
                     <SwapIcon />
                 </button>
                 <div className="space-y-2">
-                    <select value={state.targetLang} onChange={e => setState((prev: any) => ({ ...prev, targetLang: e.target.value as LanguageCode }))} className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border-none font-bold">
-                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{l.name}</option>)}
+                    <select 
+                        value={state.targetLang} 
+                        onChange={e => setState((prev: any) => ({ ...prev, targetLang: e.target.value as LanguageCode }))} 
+                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                        className="w-full p-4 rounded-2xl bg-gray-800 dark:bg-gray-700 text-white border border-gray-700 dark:border-gray-600 font-bold"
+                    >
+                        {LANGUAGES.map(l => <option key={l.code} value={l.code} className="bg-gray-800 text-white">{l.name}</option>)}
                     </select>
                     <div className="relative">
                         <textarea 
                             value={state.outputText} 
                             readOnly 
-                            className={`w-full h-56 p-6 rounded-3xl border-none resize-none text-xl font-medium placeholder:text-gray-400 dark:placeholder:text-gray-300 ${translateError ? 'bg-red-50/50 dark:bg-red-950/40 text-red-600 dark:text-red-300' : 'bg-blue-50/30 dark:bg-gray-700/80 text-gray-900 dark:text-white'}`} 
+                            style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', opacity: 1 }}
+                            className={`w-full h-56 p-6 rounded-3xl border resize-none text-xl font-semibold placeholder:text-gray-300 ${translateError ? 'bg-red-950/80 border-red-700 text-white' : 'bg-gray-800 dark:bg-gray-700 border-gray-700 dark:border-gray-600 text-white'}`} 
                             placeholder="Kết quả bản dịch sẽ hiển thị tại đây..." 
                         />
                         {state.loading && (
