@@ -329,6 +329,8 @@ export async function transcribeAudio(
 export async function generateSpeech(text: string, voice: VoiceType): Promise<string | null> {
   if (!text.trim()) return null;
   try {
+    const key = getApiKey();
+    if (!key) return null;
     return await withRetry(async () => {
       const ai = getAiClient();
       const response = await ai.models.generateContent({
@@ -345,6 +347,151 @@ export async function generateSpeech(text: string, voice: VoiceType): Promise<st
     console.warn("Speech generation error:", error);
     return null;
   }
+}
+
+// Shared AudioContext & active playback state for mobile (iOS Safari / Android Chrome) compatibility
+let sharedAudioCtx: AudioContext | null = null;
+let currentSourceNode: AudioBufferSourceNode | null = null;
+let currentHtmlAudio: HTMLAudioElement | null = null;
+
+function getOrUnlockAudioContext(): AudioContext | null {
+  try {
+    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtxClass) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      // Do not force sampleRate in constructor on iOS Safari; createBuffer handles 24000Hz resampling
+      sharedAudioCtx = new AudioCtxClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    // Play a 1-sample silent buffer synchronously inside the user tap gesture to unlock iOS audio
+    const silentBuffer = sharedAudioCtx.createBuffer(1, 1, 22050);
+    const silentSource = sharedAudioCtx.createBufferSource();
+    silentSource.buffer = silentBuffer;
+    silentSource.connect(sharedAudioCtx.destination);
+    silentSource.start(0);
+    return sharedAudioCtx;
+  } catch (e) {
+    console.warn("AudioContext unlock warning:", e);
+    return null;
+  }
+}
+
+export function stopSpeech(): void {
+  try {
+    if (currentSourceNode) {
+      currentSourceNode.onended = null;
+      currentSourceNode.stop();
+      currentSourceNode.disconnect();
+      currentSourceNode = null;
+    }
+  } catch {}
+  try {
+    if (currentHtmlAudio) {
+      currentHtmlAudio.pause();
+      currentHtmlAudio.currentTime = 0;
+      currentHtmlAudio = null;
+    }
+  } catch {}
+  try {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  } catch {}
+}
+
+function speakWithNativeFallback(
+  text: string,
+  voice: VoiceType,
+  isSlow: boolean,
+  lang: LanguageCode = 'English'
+): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      resolve();
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      // Clean speaker prefix if present (e.g., "Waiter says: ...")
+      const cleanedText = text.replace(/^[A-Za-z\s]+says:\s*/i, '');
+      const utterance = new SpeechSynthesisUtterance(cleanedText);
+      const langMap: Record<LanguageCode, string> = {
+        'English': 'en-US',
+        'Vietnamese': 'vi-VN',
+        'Korean': 'ko-KR',
+        'Simplified Chinese': 'zh-CN',
+        'Cantonese': 'zh-HK',
+      };
+      utterance.lang = langMap[lang] || 'en-US';
+      utterance.rate = isSlow ? 0.75 : 1.0;
+      utterance.pitch = voice === 'female' ? 1.1 : 0.95;
+
+      const voices = window.speechSynthesis.getVoices();
+      const targetLangPrefix = utterance.lang.split('-')[0].toLowerCase();
+      const matchingVoices = voices.filter(v => v.lang.toLowerCase().startsWith(targetLangPrefix));
+      if (matchingVoices.length > 0) {
+        utterance.voice = matchingVoices[0];
+      }
+
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      resolve();
+    }
+  });
+}
+
+export async function playSpeech(
+  text: string,
+  voice: VoiceType,
+  isSlow: boolean = false,
+  lang: LanguageCode = 'English'
+): Promise<void> {
+  if (!text.trim()) return;
+
+  // 1. MUST unlock AudioContext synchronously during user tap BEFORE any await!
+  stopSpeech();
+  const ctx = getOrUnlockAudioContext();
+
+  // 2. Request AI speech audio
+  const cleanedForPrompt = text.replace(/^[A-Za-z\s]+says:\s*/i, '');
+  const audioData = await generateSpeech(isSlow ? `Slowly: ${cleanedForPrompt}` : cleanedForPrompt, voice);
+
+  if (audioData && ctx) {
+    try {
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      const bytes = decode(audioData);
+      const int16 = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32768.0;
+      }
+      const buffer = ctx.createBuffer(1, float32.length, 24000);
+      buffer.getChannelData(0).set(float32);
+
+      return await new Promise<void>((resolve) => {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        currentSourceNode = source;
+        source.onended = () => {
+          if (currentSourceNode === source) currentSourceNode = null;
+          resolve();
+        };
+        source.start(0);
+      });
+    } catch (err) {
+      console.warn("WebAudio playback failed, falling back to native TTS:", err);
+    }
+  }
+
+  // 3. Fallback to device's built-in SpeechSynthesis (works on mobile even without API key or on slow network)
+  await speakWithNativeFallback(cleanedForPrompt, voice, isSlow, lang);
 }
 
 // LIVE API SESSION HANDLER

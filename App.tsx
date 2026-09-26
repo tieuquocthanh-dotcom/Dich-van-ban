@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Language, LanguageCode, VoiceType, TranslationAnalysis, TranscriptionResult, VocabularyItem, Scenario, ChatMessage, Dialogue, FriendPersona, FriendMessage, FriendChatResponse } from './types';
 import { LANGUAGES, SCENARIOS, DIALOGUES, FRIEND_PERSONAS, FRIEND_TOPICS } from './constants';
-import { translateText, generateSpeech, transcribeAudio, analyzeTranslation, generateVocabImage, getPracticeResponse, decode, connectLive, getFriendChatResponse } from './services/geminiService';
+import { translateText, generateSpeech, playSpeech, stopSpeech, transcribeAudio, analyzeTranslation, generateVocabImage, getPracticeResponse, decode, connectLive, getFriendChatResponse } from './services/geminiService';
 
 // ICONS
 const SwapIcon = () => (
@@ -25,79 +25,119 @@ const ListeningTab = ({ voice, isSlow }: { voice: VoiceType, isSlow: boolean }) 
     const [selectedDialogue, setSelectedDialogue] = useState<Dialogue | null>(null);
     const [showTranslation, setShowTranslation] = useState(false);
     const [isPlayingAll, setIsPlayingAll] = useState(false);
+    const [playingLineIdx, setPlayingLineIdx] = useState<number | null>(null);
+    const stopAllRef = useRef(false);
 
-    const handleTTS = async (text: string) => {
-        const audioData = await generateSpeech(isSlow ? `Slowly: ${text}` : text, voice);
-        if (audioData) {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            const bytes = decode(audioData);
-            const int16 = new Int16Array(bytes.buffer);
-            const buffer = ctx.createBuffer(1, int16.length, 24000);
-            buffer.getChannelData(0).set(Array.from(int16).map(v => v / 32768.0));
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(ctx.destination);
-            source.start();
-            return new Promise((resolve) => { source.onended = resolve; });
+    const handleTTS = async (text: string, idx?: number) => {
+        if (idx !== undefined) setPlayingLineIdx(idx);
+        try {
+            await playSpeech(text, voice, isSlow, 'English');
+        } finally {
+            if (idx !== undefined) setPlayingLineIdx(prev => (prev === idx ? null : prev));
         }
     };
 
+    const stopAllPlayback = () => {
+        stopAllRef.current = true;
+        stopSpeech();
+        setIsPlayingAll(false);
+        setPlayingLineIdx(null);
+    };
+
     const playFullDialogue = async () => {
-        if (!selectedDialogue || isPlayingAll) return;
-        setIsPlayingAll(true);
-        for (const line of selectedDialogue.lines) {
-            await handleTTS(`${line.speaker} says: ${line.text}`);
-            await new Promise(r => setTimeout(r, 500)); // Gap between lines
+        if (!selectedDialogue) return;
+        if (isPlayingAll) {
+            stopAllPlayback();
+            return;
         }
+        stopAllRef.current = false;
+        setIsPlayingAll(true);
+        for (let i = 0; i < selectedDialogue.lines.length; i++) {
+            if (stopAllRef.current) break;
+            const line = selectedDialogue.lines[i];
+            setPlayingLineIdx(i);
+            await playSpeech(line.text, voice, isSlow, 'English');
+            if (stopAllRef.current) break;
+            await new Promise(r => setTimeout(r, 400));
+        }
+        setPlayingLineIdx(null);
         setIsPlayingAll(false);
     };
 
     if (selectedDialogue) {
         return (
             <div className="animate-fadeIn">
-                <div className="flex items-center justify-between mb-8">
-                    <button onClick={() => setSelectedDialogue(null)} className="text-sm font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+                    <button onClick={() => { stopAllPlayback(); setSelectedDialogue(null); }} className="text-sm font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                         ← Quay lại thư viện
                     </button>
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap gap-3">
                          <button 
                             onClick={() => setShowTranslation(!showTranslation)} 
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${showTranslation ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-400'}`}
+                            className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${showTranslation ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-500'}`}
                         >
                             {showTranslation ? 'Ẩn dịch' : 'Hiện dịch'}
                         </button>
                         <button 
                             onClick={playFullDialogue} 
-                            disabled={isPlayingAll}
-                            className="px-6 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                            className={`px-6 py-2.5 text-white text-[10px] font-black rounded-xl shadow-lg uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${isPlayingAll ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                         >
-                            <SpeakerIcon /> {isPlayingAll ? 'Đang phát...' : 'Nghe toàn bộ'}
+                            <SpeakerIcon /> {isPlayingAll ? '⏹ Dừng phát' : 'Nghe toàn bộ'}
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-[3rem] p-8 space-y-8 border border-gray-100 dark:border-gray-800">
-                    <div className="text-center mb-10">
+                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-[2.5rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-6 border border-gray-100 dark:border-gray-800">
+                    <div className="text-center mb-8">
                         <div className="text-4xl mb-2">{selectedDialogue.icon}</div>
                         <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">{selectedDialogue.title}</h2>
                         <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">{selectedDialogue.category}</span>
+                        <p className="text-xs text-gray-400 mt-2">Chạm vào biểu tượng loa hoặc từng câu thoại để nghe phát âm</p>
                     </div>
 
-                    <div className="space-y-6">
-                        {selectedDialogue.lines.map((line, idx) => (
-                            <div key={idx} className="flex gap-4 group">
-                                <div className="w-20 shrink-0 text-[10px] font-black uppercase text-gray-400 mt-1">{line.speaker}</div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3">
-                                        <p className="text-lg font-medium text-gray-800 dark:text-gray-100">{line.text}</p>
-                                        <button onClick={() => handleTTS(line.text)} className="p-2 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"><SpeakerIcon /></button>
+                    <div className="space-y-4">
+                        {selectedDialogue.lines.map((line, idx) => {
+                            const isLinePlaying = playingLineIdx === idx;
+                            return (
+                                <div 
+                                    key={idx} 
+                                    onClick={() => { if (!isPlayingAll) handleTTS(line.text, idx); }}
+                                    className={`flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 p-4 rounded-2xl transition-all cursor-pointer border ${
+                                        isLinePlaying 
+                                            ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-sm' 
+                                            : 'bg-white dark:bg-gray-800/70 border-gray-100 dark:border-gray-700/60 hover:border-blue-200'
+                                    }`}
+                                >
+                                    <div className="w-24 shrink-0 text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 sm:mt-1.5">{line.speaker}</div>
+                                    <div className="flex-1">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <p className={`text-base sm:text-lg font-medium leading-relaxed ${isLinePlaying ? 'text-blue-700 dark:text-blue-300 font-bold' : 'text-gray-800 dark:text-gray-100'}`}>
+                                                {line.text}
+                                            </p>
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (isPlayingAll) stopAllPlayback();
+                                                    handleTTS(line.text, idx);
+                                                }} 
+                                                className={`p-2.5 rounded-xl shrink-0 transition-all ${
+                                                    isLinePlaying 
+                                                        ? 'bg-blue-600 text-white animate-pulse shadow-md' 
+                                                        : 'bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-100 active:scale-95'
+                                                }`}
+                                                title="Nghe câu này"
+                                            >
+                                                <SpeakerIcon />
+                                            </button>
+                                        </div>
+                                        {showTranslation && (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 italic mt-2 animate-fadeIn">🇻🇳 {line.translation}</p>
+                                        )}
                                     </div>
-                                    {showTranslation && (
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 italic mt-1 animate-fadeIn">🇻🇳 {line.translation}</p>
-                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -381,18 +421,7 @@ const ConversationTab = ({ voice, isSlow, state, setState }: { voice: VoiceType,
     };
 
     const handleTTS = async (text: string) => {
-        const audioData = await generateSpeech(isSlow ? `Slowly: ${text}` : text, voice);
-        if (audioData) {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            const bytes = decode(audioData);
-            const int16 = new Int16Array(bytes.buffer);
-            const buffer = ctx.createBuffer(1, int16.length, 24000);
-            buffer.getChannelData(0).set(Array.from(int16).map(v => v / 32768.0));
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(ctx.destination);
-            source.start();
-        }
+        await playSpeech(text, voice, isSlow, 'English');
     };
 
     if (!state.scenario) {
@@ -640,22 +669,8 @@ const FriendChatTab = ({ voice, isSlow, notebook, setNotebook }: { voice: VoiceT
     const handleTTS = async (text: string, msgId?: string) => {
         if (msgId) setPlayingMsgId(msgId);
         try {
-            const audioData = await generateSpeech(isSlow ? `Slowly: ${text}` : text, voice);
-            if (audioData) {
-                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-                const bytes = decode(audioData);
-                const int16 = new Int16Array(bytes.buffer);
-                const buffer = ctx.createBuffer(1, int16.length, 24000);
-                buffer.getChannelData(0).set(Array.from(int16).map(v => v / 32768.0));
-                const source = ctx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(ctx.destination);
-                source.start();
-                source.onended = () => {
-                    if (msgId) setPlayingMsgId(null);
-                };
-            }
-        } catch {
+            await playSpeech(text, voice, isSlow, targetLang);
+        } finally {
             if (msgId) setPlayingMsgId(null);
         }
     };
@@ -1181,18 +1196,7 @@ const DictionaryTab = ({ voice, isSlow, state, setState, notebook, setNotebook }
 
     const handleTTS = async (text: string) => {
         if (!text || text === translateError) return;
-        const audioData = await generateSpeech(isSlow ? `Slowly: ${text}` : text, voice);
-        if (audioData) {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            const bytes = decode(audioData);
-            const int16 = new Int16Array(bytes.buffer);
-            const buffer = ctx.createBuffer(1, int16.length, 24000);
-            buffer.getChannelData(0).set(Array.from(int16).map(v => v / 32768.0));
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(ctx.destination);
-            source.start();
-        }
+        await playSpeech(text, voice, isSlow, state.targetLang);
     };
 
     const saveToNotebook = async (item: VocabularyItem) => {
