@@ -655,6 +655,10 @@ const FriendChatTab = ({ voice, isSlow, notebook, setNotebook }: { voice: VoiceT
                     "Hey! Super happy to chat with you. How's your day?",
                     "I was just thinking about weekend plans. What do you like to do?",
                     "Tell me something fun that happened to you recently!"
+                ] : p.language === 'Russian' ? [
+                    "Привет! У меня всё отлично, а как твой день?",
+                    "Чем ты обычно любишь заниматься в свободное время?",
+                    "Расскажи что-нибудь интересное о Москве!"
                 ] : p.language === 'Korean' ? [
                     "안녕! 오늘 하루는 어땠어? 맛있는 거 먹었니?",
                     "요즘 한국에서 인기 있는 노래나 드라마 추천해줘!",
@@ -783,6 +787,7 @@ const FriendChatTab = ({ voice, isSlow, notebook, setNotebook }: { voice: VoiceT
                 
                 const langMap: Record<LanguageCode, string> = {
                     'English': 'en-US',
+                    'Russian': 'ru-RU',
                     'Korean': 'ko-KR',
                     'Simplified Chinese': 'zh-CN',
                     'Cantonese': 'zh-HK',

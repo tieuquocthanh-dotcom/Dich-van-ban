@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     ];
     const apiKey = candidates.find(k => k && k.trim() !== '' && k !== 'PLACEHOLDER_API_KEY') || '';
     return {
+      envPrefix: ['VITE_', 'GEMINI_'],
       server: {
         port: 3000,
         host: '0.0.0.0',

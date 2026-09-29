@@ -4,6 +4,7 @@ import { Language, Scenario, Dialogue, FriendPersona } from './types';
 export const LANGUAGES: Language[] = [
   { code: 'Vietnamese', name: 'Tiếng Việt' },
   { code: 'English', name: 'Tiếng Anh' },
+  { code: 'Russian', name: 'Tiếng Nga' },
   { code: 'Korean', name: 'Tiếng Hàn' },
   { code: 'Simplified Chinese', name: 'Tiếng Trung (Giản thể)' },
   { code: 'Cantonese', name: 'Tiếng Quảng Đông' },
@@ -19,6 +20,16 @@ export const FRIEND_PERSONAS: FriendPersona[] = [
     personality: 'Friendly, casual, enthusiastic, uses natural everyday American slang, great sense of humor, loves talking about weekends, hobbies, movies, coffee, and daily life.',
     defaultTopic: 'Hôm nay của bạn thế nào?',
     introMessage: "Hey there! What's up? I'm Alex. Super excited to hang out with you! How has your day been treating you so far?"
+  },
+  {
+    id: 'dmitry',
+    name: 'Dmitry (Дмитрий)',
+    avatar: '🐻',
+    tagline: 'Người bạn Nga ấm áp, hào sảng, yêu âm nhạc & du lịch',
+    language: 'Russian',
+    personality: 'Warm, hospitable, witty Russian friend from Moscow, loves literature, music, winter sports, cozy tea conversations, and everyday natural Russian expressions.',
+    defaultTopic: 'Cuộc sống & Văn hóa Nga',
+    introMessage: "Привет! Рад познакомиться! Меня зовут Дмитрий. Как твои дела сегодня? Давай поболтаем!"
   },
   {
     id: 'emma',

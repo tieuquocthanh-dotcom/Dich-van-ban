@@ -1,5 +1,5 @@
 
-export type LanguageCode = 'Vietnamese' | 'English' | 'Korean' | 'Simplified Chinese' | 'Cantonese';
+export type LanguageCode = 'Vietnamese' | 'English' | 'Russian' | 'Korean' | 'Simplified Chinese' | 'Cantonese';
 
 export interface Language {
   code: LanguageCode;

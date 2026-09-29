@@ -4,11 +4,11 @@ import { LanguageCode, VoiceType, TranslationAnalysis, TranscriptionResult, Prac
 
 export function getApiKey(): string {
   const viteEnv = (typeof import.meta !== 'undefined' && (import.meta as any).env) ? (import.meta as any).env : {};
-  const procEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
   const candidates = [
-    procEnv.GEMINI_API_KEY,
-    procEnv.API_KEY,
+    process.env.GEMINI_API_KEY,
+    process.env.API_KEY,
     viteEnv.VITE_GEMINI_API_KEY,
+    viteEnv.GEMINI_API_KEY,
     viteEnv.VITE_API_KEY,
   ];
   const found = candidates.find(k => typeof k === 'string' && k.trim() !== '' && k !== 'PLACEHOLDER_API_KEY');
@@ -600,6 +600,7 @@ function speakWithNativeFallback(
       const langMap: Record<LanguageCode, string> = {
         'English': 'en-US',
         'Vietnamese': 'vi-VN',
+        'Russian': 'ru-RU',
         'Korean': 'ko-KR',
         'Simplified Chinese': 'zh-CN',
         'Cantonese': 'zh-HK',
